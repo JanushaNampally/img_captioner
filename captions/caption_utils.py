@@ -1,8 +1,10 @@
-# captions/caption_utils.py
+
+
 from PIL import Image
-
 from transformers import VisionEncoderDecoderModel, ViTImageProcessor, AutoTokenizer
+import torch
 
+# Load pre-trained model and supporting processors
 model = VisionEncoderDecoderModel.from_pretrained('nlpconnect/vit-gpt2-image-captioning')
 processor = ViTImageProcessor.from_pretrained('nlpconnect/vit-gpt2-image-captioning')
 tokenizer = AutoTokenizer.from_pretrained('nlpconnect/vit-gpt2-image-captioning')
