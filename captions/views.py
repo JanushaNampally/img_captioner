@@ -1,4 +1,4 @@
-'''
+"""
 
 # Create your views here.
 # captions/views.py
@@ -53,6 +53,67 @@ def image_upload(request):
         'form': form, 'caption': caption, 'img_obj': img_obj
     })
 '''
+from django.shortcuts import render
+from .forms import ImageUploadForm
+from .caption_utils import generate_captions, text_to_speech, translate_caption
+from .models import UploadedImage
+
+def image_upload(request):
+    captions = None
+    translations = None
+    img_obj = None
+    audio_path = None
+    
+
+    if request.method == "POST":
+        form = ImageUploadForm(request.POST, request.FILES)
+        if form.is_valid():
+            img = form.save()
+            
+            
+            # in views.py around generation part
+            try:
+                captions = generate_captions(image.path, num_captions=4)
+                if captions:
+                    img.caption = captions[0]
+                    img.save()
+                    audio_path = text_to_speech(captions[0], "caption.mp3")
+                    translations = translate_caption(captions[0])
+            except Exception as e:
+                import logging
+                logging.exception("Caption generation error")
+                form.add_error(None, "Caption generation failed. See server logs.")
+
+            # Generate multiple captions
+            captions = generate_captions(img.image.path, num_captions=5)
+            img.caption = captions[0]  # store the first one in DB
+            img.save()
+            img_obj = img
+
+            # Convert best caption to audio
+            audio_path = text_to_speech(captions[0], "caption.mp3")
+
+            # Translate best caption
+            translations = translate_caption(captions[0])
+
+            # Dummy evaluation: using first caption as reference, second as hypothesis
+           
+
+    else:
+        form = ImageUploadForm()
+
+    return render(request, 'upload.html', {
+        'form': form,
+        'captions': captions,
+        'img_obj': img_obj,
+        'audio_path': audio_path,
+        'translations': translations
+        
+    })
+
+
+"""
+
 from django.shortcuts import render
 from .forms import ImageUploadForm
 from .caption_utils import generate_captions, text_to_speech, translate_caption

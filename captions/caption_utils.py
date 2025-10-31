@@ -1,5 +1,4 @@
-'''
-
+"""
 from PIL import Image
 from transformers import VisionEncoderDecoderModel, ViTImageProcessor, AutoTokenizer
 import torch
@@ -40,8 +39,7 @@ def generate_captions(image_path, num_captions=5):
     return list(set(captions))  # remove duplicates
 
 
-
-'''
+""" 
 
 from PIL import Image
 from transformers import VisionEncoderDecoderModel, ViTImageProcessor, AutoTokenizer

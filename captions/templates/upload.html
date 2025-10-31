@@ -8,7 +8,7 @@
 
 
 
-find the error
+
   <style>
     body { background-color: #fefcf5; font-family: 'Segoe UI', sans-serif; }
     .container { max-width: 650px; margin-top: 40px; background: #fff; border-radius: 12px;
@@ -88,6 +88,12 @@ find the error
   <div class="alert alert-success text-center mb-4" style="font-size:1rem;">
     <span style="font-weight:500;"></span> Built with Django and Deep Learning for image captioning and multilingual translation.
   </div>
+  {% if form.non_field_errors %}
+  <div class="alert alert-danger">
+    {{ form.non_field_errors }}
+  </div>
+{% endif %}
+
 </body>
 </html>
 
