@@ -1,161 +1,45 @@
-"""
-
-# Create your views here.
 # captions/views.py
-
 from django.shortcuts import render
-from .forms import ImageUploadForm
-from .caption_utils import generate_caption
-from .models import UploadedImage
-from .caption_utils import generate_captions
-from gtts import gTTS
+from .caption_utils import generate_captions, translate_caption, text_to_speech
 import os
-
-def text_to_speech(caption, filename="caption.mp3"):
-    tts = gTTS(text=caption, lang='en')
-    path = os.path.join("media", filename)
-    tts.save(path)
-    return path
-
-def image_upload(request):
-    captions = None
-    img_obj = None
-    if request.method == "POST":
-        form = ImageUploadForm(request.POST, request.FILES)
-        if form.is_valid():
-            img = form.save()
-            # Multiple captions
-            captions = generate_captions(img.image.path, num_captions=5)
-            img.caption = captions[0]  # store best one in DB
-            img.save()
-            img_obj = img
-    else:
-        form = ImageUploadForm()
-    return render(request, 'upload.html', {
-        'form': form, 'captions': captions, 'img_obj': img_obj
-    })
-
-def image_upload(request):
-    caption = None
-    img_obj = None
-    if request.method == "POST":
-        form = ImageUploadForm(request.POST, request.FILES)
-        if form.is_valid():
-            img = form.save()
-            # Computer Vision: Generate caption!
-            caption = generate_caption(img.image.path)
-            img.caption = caption
-            img.save()
-            img_obj = img
-    else:
-        form = ImageUploadForm()
-    return render(request, 'upload.html', {
-        'form': form, 'caption': caption, 'img_obj': img_obj
-    })
-'''
 from django.shortcuts import render
-from .forms import ImageUploadForm
-from .caption_utils import generate_captions, text_to_speech, translate_caption
-from .models import UploadedImage
 
-def image_upload(request):
-    captions = None
-    translations = None
-    img_obj = None
-    audio_path = None
-    
+def about(request):
+    return render(request, 'captions/about.html')
 
-    if request.method == "POST":
-        form = ImageUploadForm(request.POST, request.FILES)
-        if form.is_valid():
-            img = form.save()
-            
-            
-            # in views.py around generation part
-            try:
-                captions = generate_captions(image.path, num_captions=4)
-                if captions:
-                    img.caption = captions[0]
-                    img.save()
-                    audio_path = text_to_speech(captions[0], "caption.mp3")
-                    translations = translate_caption(captions[0])
-            except Exception as e:
-                import logging
-                logging.exception("Caption generation error")
-                form.add_error(None, "Caption generation failed. See server logs.")
+def upload_image(request):
+    context = {}
+    if request.method == "POST" and "image" in request.FILES:
+        image_file = request.FILES["image"]
+        upload_dir = "captions/static/captions/uploads"
+        os.makedirs(upload_dir, exist_ok=True)
 
-            # Generate multiple captions
-            captions = generate_captions(img.image.path, num_captions=5)
-            img.caption = captions[0]  # store the first one in DB
-            img.save()
-            img_obj = img
+        image_path = f"{upload_dir}/{image_file.name}"
+        with open(image_path, "wb+") as dest:
+            for chunk in image_file.chunks():
+                dest.write(chunk)
 
-            # Convert best caption to audio
-            audio_path = text_to_speech(captions[0], "caption.mp3")
+        # Generate English captions
+        english_captions = generate_captions(image_path)
+        best_caption = english_captions[0] if english_captions else "No caption generated."
 
-            # Translate best caption
-            translations = translate_caption(captions[0])
+        # Translate best caption
+        translations = translate_caption(best_caption)
 
-            # Dummy evaluation: using first caption as reference, second as hypothesis
-           
+        # Generate audio files for English and translations
+        langs = {'English': 'en', 'Hindi': 'hi', 'Telugu': 'te', 'German': 'de'}
+        audio_files = {}
+        for lang_name, lang_code in langs.items():
+            text = best_caption if lang_name == "English" else translations.get(lang_name, "")
+            filename = os.path.splitext(image_file.name)[0]
+            audio_files[lang_name] = text_to_speech(text, lang_code, filename)
 
-    else:
-        form = ImageUploadForm()
+        context = {
+            "image_url": f"/static/captions/uploads/{image_file.name}",
+            "captions_en": english_captions,
+            "best_caption": best_caption,
+            "translations": translations,
+            "audio_files": audio_files,
+        }
 
-    return render(request, 'upload.html', {
-        'form': form,
-        'captions': captions,
-        'img_obj': img_obj,
-        'audio_path': audio_path,
-        'translations': translations
-        
-    })
-
-
-"""
-
-from django.shortcuts import render
-from .forms import ImageUploadForm
-from .caption_utils import generate_captions, text_to_speech, translate_caption
-from .models import UploadedImage
-
-def image_upload(request):
-    captions = None
-    translations = None
-    img_obj = None
-    audio_path = None
-    
-
-    if request.method == "POST":
-        form = ImageUploadForm(request.POST, request.FILES)
-        if form.is_valid():
-            img = form.save()
-
-            # Generate multiple captions
-            captions = generate_captions(img.image.path, num_captions=5)
-            img.caption = captions[0]  # store the first one in DB
-            img.save()
-            img_obj = img
-
-            # Convert best caption to audio
-            audio_path = text_to_speech(captions[0], "caption.mp3")
-
-            # Translate best caption
-            translations = translate_caption(captions[0])
-
-            # Dummy evaluation: using first caption as reference, second as hypothesis
-           
-
-    else:
-        form = ImageUploadForm()
-
-    return render(request, 'upload.html', {
-        'form': form,
-        'captions': captions,
-        'img_obj': img_obj,
-        'audio_path': audio_path,
-        'translations': translations
-        
-    })
-
-
+    return render(request, "captions/upload.html", context)

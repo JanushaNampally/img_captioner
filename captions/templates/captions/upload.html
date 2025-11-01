@@ -1,0 +1,43 @@
+{% extends 'captions/base.html' %}
+{% load static %}
+{% block content %}
+<div class="container mt-5 text-center">
+  <h2 class="mb-4">🧠 AI Image Caption Generator</h2>
+
+  <form method="POST" enctype="multipart/form-data" class="mb-4">
+    {% csrf_token %}
+    <input type="file" name="image" accept="image/*" class="form-control w-50 mx-auto mb-3" required>
+    <button type="submit" class="btn btn-success">Generate Caption</button>
+  </form>
+
+  {% if image_url %}
+  <div class="card shadow-lg p-4 mx-auto" style="max-width: 700px;">
+    <img src="{{ image_url }}" class="img-fluid rounded mb-4" alt="Uploaded Image" style="max-height: 350px; object-fit: contain; background-color: #fdfaf5;">
+
+    <h4 class="mt-3">📝 English Captions:</h4>
+    <ul class="list-group mb-4">
+      {% for caption in captions_en %}
+        <li class="list-group-item">{{ caption }}</li>
+      {% endfor %}
+    </ul>
+
+    <hr>
+    <h5>🌐 Translations (Best Caption)</h5>
+    {% for lang, cap in translations.items %}
+      <p><strong>{{ lang }}:</strong> {{ cap }}</p>
+    {% endfor %}
+
+    <hr>
+    <h5>🔊 Audio Outputs</h5>
+    {% for lang, path in audio_files.items %}
+      {% if path %}
+      <p><strong>{{ lang }}</strong></p>
+      <audio controls>
+        <source src="{{ path }}" type="audio/mpeg">
+      </audio>
+      {% endif %}
+    {% endfor %}
+  </div>
+  {% endif %}
+</div>
+{% endblock %}

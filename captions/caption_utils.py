@@ -1,94 +1,58 @@
-"""
+# captions/caption_utils.py
+from transformers import BlipProcessor, BlipForConditionalGeneration
 from PIL import Image
-from transformers import VisionEncoderDecoderModel, ViTImageProcessor, AutoTokenizer
-import torch
-
-# Load pre-trained model and supporting processors
-model = VisionEncoderDecoderModel.from_pretrained('nlpconnect/vit-gpt2-image-captioning')
-processor = ViTImageProcessor.from_pretrained('nlpconnect/vit-gpt2-image-captioning')
-tokenizer = AutoTokenizer.from_pretrained('nlpconnect/vit-gpt2-image-captioning')
-
-def generate_caption(image_path):
-    image = Image.open(image_path)
-    if image.mode != "RGB":
-        image = image.convert(mode="RGB")
-    pixel_values = processor(images=image, return_tensors="pt").pixel_values
-    output_ids = model.generate(pixel_values, max_length=16, num_beams=4)
-    caption = tokenizer.decode(output_ids[0], skip_special_tokens=True)
-    return caption
-
-# caption_utils.py
-def generate_captions(image_path, num_captions=5):
-    image = Image.open(image_path)
-    if image.mode != "RGB":
-        image = image.convert(mode="RGB")
-
-    pixel_values = processor(images=image, return_tensors="pt").pixel_values
-
-    # Beam search and sampling for diversity
-    output_ids = model.generate(
-        pixel_values,
-        max_length=20,
-        num_beams=5,
-        num_return_sequences=num_captions,
-        temperature=1.0,
-        top_k=50
-    )
-
-    captions = [tokenizer.decode(ids, skip_special_tokens=True) for ids in output_ids]
-    return list(set(captions))  # remove duplicates
-
-
-""" 
-
-from PIL import Image
-from transformers import VisionEncoderDecoderModel, ViTImageProcessor, AutoTokenizer
-import torch
 from gtts import gTTS
-import os
 from googletrans import Translator
+import torch
+import os
 
-
-# Load pre-trained model and supporting processors
-model = VisionEncoderDecoderModel.from_pretrained('nlpconnect/vit-gpt2-image-captioning')
-processor = ViTImageProcessor.from_pretrained('nlpconnect/vit-gpt2-image-captioning')
-tokenizer = AutoTokenizer.from_pretrained('nlpconnect/vit-gpt2-image-captioning')
-
-# Generate multiple captions
-def generate_captions(image_path, num_captions=5):
-    image = Image.open(image_path)
-    if image.mode != "RGB":
-        image = image.convert(mode="RGB")
-
-    pixel_values = processor(images=image, return_tensors="pt").pixel_values
-
-    output_ids = model.generate(
-        pixel_values,
-        max_length=20,
-        num_beams=5,
-        num_return_sequences=num_captions,
-        temperature=1.0,
-        top_k=50
-    )
-
-    captions = [tokenizer.decode(ids, skip_special_tokens=True) for ids in output_ids]
-    return list(set(captions))  # remove duplicates
-
-# Text-to-speech
-def text_to_speech(caption, filename="caption.mp3"):
-    tts = gTTS(text=caption, lang='en')
-    path = os.path.join("media", filename)
-    tts.save(path)
-    return path
-
-# Translate captions to multiple languages
+# Load BLIP model once (fast + accurate)
+processor = BlipProcessor.from_pretrained("Salesforce/blip-image-captioning-base")
+model = BlipForConditionalGeneration.from_pretrained("Salesforce/blip-image-captioning-base")
 translator = Translator()
+
+def generate_captions(image_path, num_captions=4):
+    """Generate up to 4 diverse English captions for the given image."""
+    image = Image.open(image_path).convert("RGB")
+    inputs = processor(image, return_tensors="pt")
+
+    captions = []
+    for _ in range(num_captions * 2):  # generate more and pick unique
+        output = model.generate(**inputs, max_length=30, num_beams=5, temperature=1.0, top_p=0.9)
+        caption = processor.decode(output[0], skip_special_tokens=True).strip().capitalize()
+        if caption not in captions:
+            captions.append(caption)
+        if len(captions) >= num_captions:
+            break
+    return captions
+
+
 def translate_caption(caption):
-    languages = ['hi', 'te', 'de', ]  # Hindi, Telugu, German, French
+    """Translate best caption into Hindi, Telugu, and German."""
+    languages = {
+        'hi': 'Hindi',
+        'te': 'Telugu',
+        'de': 'German',
+    }
     translations = {}
-    for lang in languages:
-        translations[lang] = translator.translate(caption, dest=lang).text
+    for code, name in languages.items():
+        try:
+            translated_text = translator.translate(caption, dest=code).text
+            translations[name] = translated_text
+        except Exception as e:
+            translations[name] = f"Translation failed: {e}"
     return translations
 
-# Evaluate captions with BLEU & METEOR
 
+def text_to_speech(text, lang_code, filename):
+    """Convert text to speech and save as MP3 for each language."""
+    audio_dir = "captions/static/captions/audio"
+    os.makedirs(audio_dir, exist_ok=True)
+    path = f"{audio_dir}/{filename}_{lang_code}.mp3"
+    try:
+        tts = gTTS(text=text, lang=lang_code)
+        tts.save(path)
+        return f"/static/captions/audio/{filename}_{lang_code}.mp3"
+    except Exception as e:
+        print(f"TTS generation failed for {lang_code}: {e}")
+        return None

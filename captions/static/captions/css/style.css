@@ -1,0 +1,28 @@
+body {
+  background-color: #fdfcf7;
+  font-family: 'Poppins', sans-serif;
+  color: #333;
+}
+
+.bg-olive {
+  background-color: #556b2f !important;
+}
+
+.card {
+  border-radius: 15px;
+  background-color: #fffdf5;
+  box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+}
+
+.upload-btn {
+  background-color: #556b2f;
+  color: #fff;
+  padding: 10px 25px;
+  border-radius: 8px;
+  transition: 0.3s;
+  border: none;
+}
+
+.upload-btn:hover {
+  background-color: #6b8e23;
+}
