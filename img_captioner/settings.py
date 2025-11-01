@@ -13,19 +13,12 @@ https://docs.djangoproject.com/en/5.2/ref/settings/
 from pathlib import Path
 import os
 
-# Base directory of the project
 BASE_DIR = Path(__file__).resolve().parent.parent
 
 # ----------------------------------------------------------
-# SECURITY SETTINGS
-# ----------------------------------------------------------
 SECRET_KEY = 'django-insecure-kkbmj+#rouksde$6@9*#q#^+c@hgb8uj7$yum+bif5e@m1#n=8'
 DEBUG = True
-ALLOWED_HOSTS = []  # add '127.0.0.1', 'localhost' for safety if needed
-
-# ----------------------------------------------------------
-# APPLICATION DEFINITION
-# ----------------------------------------------------------
+ALLOWED_HOSTS = []  
 INSTALLED_APPS = [
     'django.contrib.admin',
     'django.contrib.auth',
@@ -50,9 +43,6 @@ MIDDLEWARE = [
 
 ROOT_URLCONF = 'img_captioner.urls'
 
-# ----------------------------------------------------------
-# TEMPLATE SETTINGS
-# ----------------------------------------------------------
 TEMPLATES = [
     {
         'BACKEND': 'django.template.backends.django.DjangoTemplates',
@@ -73,10 +63,6 @@ TEMPLATES = [
 ]
 
 WSGI_APPLICATION = 'img_captioner.wsgi.application'
-
-# ----------------------------------------------------------
-# DATABASE
-# ----------------------------------------------------------
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.sqlite3',
@@ -117,3 +103,6 @@ MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
 # DEFAULT PRIMARY KEY FIELD TYPE
 # ----------------------------------------------------------
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+# Media configuration (for dynamically generated files like audio)
+MEDIA_URL = '/media/'
+MEDIA_ROOT = os.path.join(BASE_DIR, 'media')

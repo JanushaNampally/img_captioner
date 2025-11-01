@@ -1,42 +1,46 @@
 {% extends 'captions/base.html' %}
-{% load static %}
 {% block content %}
-<div class="container mt-5 text-center">
-  <h2 class="mb-4">🧠 AI Image Caption Generator</h2>
+<div class="container my-5 text-center">
+  <h2 class="mb-4">🖼️ AI Image Caption Generator</h2>
 
-  <form method="POST" enctype="multipart/form-data" class="mb-4">
+<form method="POST" enctype="multipart/form-data" action="{% url 'upload_image' %}" class="mb-5">
     {% csrf_token %}
-    <input type="file" name="image" accept="image/*" class="form-control w-50 mx-auto mb-3" required>
+    <input type="file" name="image" class="form-control mb-3" required>
     <button type="submit" class="btn btn-success">Generate Caption</button>
   </form>
 
-  {% if image_url %}
-  <div class="card shadow-lg p-4 mx-auto" style="max-width: 700px;">
-    <img src="{{ image_url }}" class="img-fluid rounded mb-4" alt="Uploaded Image" style="max-height: 350px; object-fit: contain; background-color: #fdfaf5;">
+  {% if image_path %}
+  <div class="card p-4 shadow">
+    <img src="/{{ image_path }}" class="img-fluid mb-4" alt="Uploaded Image">
 
-    <h4 class="mt-3">📝 English Captions:</h4>
-    <ul class="list-group mb-4">
-      {% for caption in captions_en %}
-        <li class="list-group-item">{{ caption }}</li>
+
+    <h4>🧾 Captions Generated:</h4>
+    <ul class="list-unstyled">
+      {% for cap in captions %}
+      <li>• {{ cap }}</li>
       {% endfor %}
     </ul>
 
-    <hr>
-    <h5>🌐 Translations (Best Caption)</h5>
-    {% for lang, cap in translations.items %}
-      <p><strong>{{ lang }}:</strong> {{ cap }}</p>
+    <h5 class="mt-3">🌍 Translations:</h5>
+    <ul class="list-unstyled">
+      <li><b>Hindi:</b> {{ translations.Hindi }}</li>
+      <li><b>Telugu:</b> {{ translations.Telugu }}</li>
+      <li><b>German:</b> {{ translations.German }}</li>
+    </ul>
+
+    <h5 class="mt-3">🔊 Audio Outputs:</h5>
+    {% for lang, path in audio_files.items %}
+      <p><b>{{ lang|upper }}:</b><audio controls><source src="{{ path }}" type="audio/mp3"></audio>
+
     {% endfor %}
 
-    <hr>
-    <h5>🔊 Audio Outputs</h5>
-    {% for lang, path in audio_files.items %}
-      {% if path %}
-      <p><strong>{{ lang }}</strong></p>
-      <audio controls>
-        <source src="{{ path }}" type="audio/mpeg">
-      </audio>
-      {% endif %}
-    {% endfor %}
+    <hr class="my-4">
+
+    <h4>🧠 Scene Paragraph:</h4>
+    <p>{{ paragraph }}</p>
+
+    <h4 class="mt-4">✨ Story Description:</h4>
+    <p>{{ story }}</p>
   </div>
   {% endif %}
 </div>

@@ -1,0 +1,13 @@
+{% extends 'captions/base.html' %}
+{% block content %}
+<div class="text-center mt-5">
+  <h2>Welcome to AI Caption Dashboard</h2>
+  <p class="text-muted">Generate captions, translations, and creative text from your images.</p>
+
+  <div class="mt-4">
+    <a href="{% url 'upload_image' %}" class="btn btn-success mx-2">🎨 Image Captioner</a>
+    <a href="{% url 'paragraph_generator' %}" class="btn btn-info mx-2">🧾 Paragraph Generator</a>
+    <a href="{% url 'story_generator' %}" class="btn btn-warning mx-2">✨ Story Generator</a>
+  </div>
+</div>
+{% endblock %}

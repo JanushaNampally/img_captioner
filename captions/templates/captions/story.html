@@ -1,0 +1,18 @@
+{% extends 'captions/base.html' %}
+{% block content %}
+<div class="container my-5">
+  <h3 class="text-center mb-4">✨ Story Generator</h3>
+  <form method="POST" class="text-center">
+    {% csrf_token %}
+    <input type="text" name="caption" class="form-control mb-3" placeholder="Enter a caption or short description..." required>
+    <button type="submit" class="btn btn-warning">Generate Story</button>
+  </form>
+
+  {% if story %}
+  <div class="card mt-4 p-4 shadow">
+    <h5>Generated Story:</h5>
+    <p>{{ story }}</p>
+  </div>
+  {% endif %}
+</div>
+{% endblock %}
