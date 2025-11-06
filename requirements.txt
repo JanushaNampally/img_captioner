@@ -7,7 +7,7 @@ transformers==4.44.2
 Pillow==10.0.0
 gTTS==2.3.2
 googletrans==4.0.0-rc1
-sentencepiece
+sentencepiece==0.2.1
 accelerate
 gunicorn==22.0.0
 numpy==2.1.3

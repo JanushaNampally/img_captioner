@@ -1,59 +1,80 @@
-from transformers import DonutProcessor, VisionEncoderDecoderModel, pipeline
+import os
+from pathlib import Path
 from PIL import Image
 from gtts import gTTS
 from googletrans import Translator
-import torch, os
 
+import torch
+from transformers import (
+    VisionEncoderDecoderModel,
+    ViTImageProcessor,
+    AutoTokenizer,
+    pipeline,
+)
 
-# -----------------------------------------------------------
-# 1️⃣ Use Donut (better for screenshots, receipts, UI images)
-# -----------------------------------------------------------
-processor = DonutProcessor.from_pretrained("naver-clova-ix/donut-base-finetuned-docvqa")
-model = VisionEncoderDecoderModel.from_pretrained("naver-clova-ix/donut-base-finetuned-docvqa")
+# ----------- Model & utils (load once) -----------
+DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
+
+caption_model = VisionEncoderDecoderModel.from_pretrained(
+    "nlpconnect/vit-gpt2-image-captioning"
+).to(DEVICE)
+caption_feature_extractor = ViTImageProcessor.from_pretrained(
+    "nlpconnect/vit-gpt2-image-captioning"
+)
+caption_tokenizer = AutoTokenizer.from_pretrained(
+    "nlpconnect/vit-gpt2-image-captioning"
+)
+
+# lightweight text pipelines
+summarizer = pipeline("summarization", model="t5-small")
+story_generator = pipeline("text2text-generation", model="google/flan-t5-base")
 translator = Translator()
 
-# Text summarizer (for paragraph)
-summarizer = pipeline("summarization", model="t5-small")
 
-# Creative story generator
-story_generator = pipeline("text2text-generation", model="google/flan-t5-base")
-
-
-# -----------------------------------------------------------
-# 2️⃣ Caption Generator (OCR-aware)
-# -----------------------------------------------------------
-def generate_captions(image_path, num_captions=1):
-    """Generate readable caption(s) describing visible text."""
+# ----------- Caption generator -----------
+def generate_captions(image_path: str, num_captions: int = 1):
+    """
+    Returns a list of `num_captions` captions for the given image_path.
+    Uses nlpconnect/vit-gpt2-image-captioning.
+    """
     image = Image.open(image_path).convert("RGB")
 
-    pixel_values = processor(image, return_tensors="pt").pixel_values
-    outputs = model.generate(pixel_values, max_length=256)
+    # ensure consistent tensor shapes (padding)
+    inputs = caption_feature_extractor(
+        images=image, return_tensors="pt", padding="max_length"
+    )
+    pixel_values = inputs.pixel_values.to(DEVICE)
 
-    text = processor.batch_decode(outputs, skip_special_tokens=True)[0]
-    text = text.replace("<s>", "").replace("</s>", "").strip()
+    # generate
+    output_ids = caption_model.generate(
+        pixel_values,
+        max_length=50,
+        num_beams=4,
+        no_repeat_ngram_size=2,
+        early_stopping=True,
+    )
 
-    if not text:
-        text = "No visible text detected in the image."
+    caption = caption_tokenizer.decode(output_ids[0], skip_special_tokens=True).strip()
 
-    # Return multiple identical captions just to maintain format
-    return [text] * num_captions
+    if not caption:
+        caption = "No caption generated."
+
+    # Return list (repeat if user asked for multiple; can be improved later)
+    return [caption] * max(1, num_captions)
 
 
-# -----------------------------------------------------------
-# 3️⃣ Summarize multiple captions into a short paragraph
-# -----------------------------------------------------------
+# ----------- Paragraph summarizer -----------
 def generate_paragraph(captions):
     if not captions:
         return "No captions available to summarize."
+
     combined = " ".join(captions)
-    summary = summarizer(combined, max_length=60, min_length=20, do_sample=False)
+    summary = summarizer(combined, max_length=80, min_length=25, do_sample=False)
     return summary[0]["summary_text"]
 
 
-# -----------------------------------------------------------
-# 4️⃣ Translate the text into Hindi, Telugu, German
-# -----------------------------------------------------------
-def translate_caption(caption):
+# ----------- Translate caption -----------
+def translate_caption(caption: str):
     languages = {"hi": "Hindi", "te": "Telugu", "de": "German"}
     translations = {}
     for code, name in languages.items():
@@ -64,66 +85,47 @@ def translate_caption(caption):
     return translations
 
 
-# -----------------------------------------------------------
-# 5️⃣ Text-to-Speech: store in MEDIA/audio
-# -----------------------------------------------------------
-def text_to_speech(text, lang_code, filename):
+# ----------- Text to speech -----------
+def text_to_speech(text: str, lang_code: str, filename: str):
+    """
+    Saves mp3 in MEDIA_ROOT/audio and returns MEDIA_URL path or None.
+    """
+    if not text or not text.strip():
+        return None
+
     from django.conf import settings
-    audio_dir = os.path.join(settings.MEDIA_ROOT, "audio")
-    os.makedirs(audio_dir, exist_ok=True)
-    audio_path = os.path.join(audio_dir, f"{filename}_{lang_code}.mp3")
 
+    audio_dir = Path(settings.MEDIA_ROOT) / "audio"
+    audio_dir.mkdir(parents=True, exist_ok=True)
+
+    audio_path = audio_dir / f"{filename}_{lang_code}.mp3"
     try:
-        if not text.strip():
-            print(f"⚠️ Empty text for {lang_code}, skipping TTS")
-            return None
-
         tts = gTTS(text=text, lang=lang_code)
-        tts.save(audio_path)
+        tts.save(str(audio_path))
         return f"{settings.MEDIA_URL}audio/{filename}_{lang_code}.mp3"
-
     except Exception as e:
-        print(f"❌ TTS generation failed for {lang_code}: {e}")
+        # keep server from crashing; log and return None
+        print(f"TTS failed for {lang_code}: {e}")
         return None
 
 
-# -----------------------------------------------------------
-# 6️⃣ Story generator — contextual and short
-# -----------------------------------------------------------
-def generate_story(caption):
+# ----------- Story generator -----------
+def generate_story(caption: str):
     if not caption or not isinstance(caption, str):
         return "No caption available for story generation."
 
     prompt = f"{caption}\nWrite a short creative story about this scene."
-
     try:
         output = story_generator(
             prompt,
-            max_length=120,
+            max_length=150,
             num_return_sequences=1,
             do_sample=True,
             top_p=0.9,
             temperature=0.8,
         )
-        story = output[0].get("generated_text", "").strip()
-
-        # Clean redundant bits
-        for bad in [prompt, caption, "Write a short creative story about this scene."]:
-            story = story.replace(bad, "").strip()
-
-        sentences = []
-        for s in story.split(". "):
-            if s not in sentences:
-                sentences.append(s)
-        story = ". ".join(sentences).strip()
-
-        if story:
-            story = story[0].upper() + story[1:]
-        else:
-            story = "Story generation failed."
-
-        return story
-
+        story = output[0].get("generated_text", "").replace(prompt, "").strip()
+        return story if story else "Story generation failed."
     except Exception as e:
-        print(f"❌ Story generation failed: {e}")
+        print(f"Story generation failed: {e}")
         return "Error generating story."
